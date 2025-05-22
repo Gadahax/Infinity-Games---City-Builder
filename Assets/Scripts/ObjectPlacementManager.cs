@@ -25,7 +25,7 @@ public class ObjectPlacementManager : MonoBehaviour
             mainCamera = Camera.main;
 
         if (gridSystem == null)
-            gridSystem = FindObjectOfType<GridSystem>();
+            gridSystem = Object.FindFirstObjectByType<GridSystem>();
 
         if (cityContainer == null)
             cityContainer = GameObject.Find("CityContainer").transform;

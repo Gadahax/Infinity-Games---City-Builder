@@ -42,13 +42,13 @@ public class ObjectSelectionManager : MonoBehaviour
 
     void Start()
     {
-        placementManager = FindObjectOfType<ObjectPlacementManager>();
+        placementManager = Object.FindFirstObjectByType<ObjectPlacementManager>();
         if (placementManager == null)
         {
             Debug.LogError("ObjectPlacementManager not found in the scene!");
         }
 
-        dragAndDropManager = FindObjectOfType<DragAndDropManager>();
+        dragAndDropManager = Object.FindFirstObjectByType<DragAndDropManager>();
         if (dragAndDropManager == null)
         {
             Debug.LogError("DragAndDropManager not found in the scene!");

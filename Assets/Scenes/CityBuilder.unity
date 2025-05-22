@@ -1497,60 +1497,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 386802135}
   m_CullTransparentMesh: 1
---- !u!1 &404736195
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 404736197}
-  - component: {fileID: 404736196}
-  m_Layer: 0
-  m_Name: SnowSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!114 &404736196
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 404736195}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 864544d8fdeb0924f8b621db56005f30, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  snowParticles: {fileID: 0}
-  snowFallRate: 100
-  accumulationRate: 0.05
-  maxSnowHeight: 0.2
-  snowMaterial: {fileID: 2100000, guid: 1cedb7a3ec65a4946990d180b426b334, type: 2}
-  snowableObjects:
-    serializedVersion: 2
-    m_Bits: 8
-  removalRotationThreshold: 15
-  removalRate: 0.1
---- !u!4 &404736197
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 404736195}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.66307974, y: -3.920114, z: -5.590666}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -4501,7 +4447,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   validPlacementMaterial: {fileID: 2100000, guid: d11999752a3aa094385962648b1518b3, type: 2}
   invalidPlacementMaterial: {fileID: 2100000, guid: a94ea236e3adb7541a6b21169fce1ff2, type: 2}
-  demolishMaterial: {fileID: 0}
+  demolishMaterial: {fileID: 2100000, guid: a94ea236e3adb7541a6b21169fce1ff2, type: 2}
   audioSource: {fileID: 1874192383}
   buildSounds:
   - {fileID: 8300000, guid: 086a97e9252d1714188141c677b8fae7, type: 3}
@@ -6241,5 +6187,4 @@ SceneRoots:
   - {fileID: 1716118545}
   - {fileID: 998941099}
   - {fileID: 1461978893}
-  - {fileID: 404736197}
   - {fileID: 922650069}

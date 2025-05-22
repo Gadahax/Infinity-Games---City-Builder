@@ -65,6 +65,7 @@ public class DragAndDropManager : MonoBehaviour
 
     void Start()
     {
+        // Auto-find components if not assigned
         if (audioSource == null)
             audioSource = GetComponent<AudioSource>();
 
@@ -75,34 +76,55 @@ public class DragAndDropManager : MonoBehaviour
             mainCamera = Camera.main;
 
         if (gridSystem == null)
-            gridSystem = FindObjectOfType<GridSystem>();
+            gridSystem = Object.FindFirstObjectByType<GridSystem>();
 
         if (cityContainer == null)
             cityContainer = GameObject.Find("CityContainer").transform;
 
         if (objectSelectionManager == null)
-            objectSelectionManager = FindObjectOfType<ObjectSelectionManager>();
+            objectSelectionManager = Object.FindFirstObjectByType<ObjectSelectionManager>();
 
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
         if (canvas != null)
             canvasTransform = canvas.transform;
 
-        if (validPlacementMaterial == null)
+        // Component validation with debug logs
+        Debug.Log("=== DragAndDropManager Component Check ===");
+        Debug.Log("mainCamera: " + (mainCamera != null ? mainCamera.name : "NULL"));
+        Debug.Log("gridSystem: " + (gridSystem != null ? "EXISTS" : "NULL"));
+        Debug.Log("cityContainer: " + (cityContainer != null ? cityContainer.name : "NULL"));
+        Debug.Log("canvasTransform: " + (canvasTransform != null ? canvasTransform.name : "NULL"));
+        Debug.Log("objectSelectionManager: " + (objectSelectionManager != null ? "EXISTS" : "NULL"));
+
+        // Error checks
+        if (mainCamera == null)
+            Debug.LogError("mainCamera could not be found!");
+        if (gridSystem == null)
+            Debug.LogError("gridSystem could not be found!");
+        if (cityContainer == null)
+            Debug.LogError("cityContainer could not be found!");
+        if (canvasTransform == null)
+            Debug.LogError("canvasTransform could not be found!");
+
+        // Check EventSystem
+        if (EventSystem.current == null)
         {
-            validPlacementMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            validPlacementMaterial.color = new Color(0, 1, 0, 0.5f);
+            Debug.LogError("No EventSystem found! Creating one...");
+            GameObject eventSystem = new GameObject("EventSystem");
+            eventSystem.AddComponent<EventSystem>();
+            eventSystem.AddComponent<StandaloneInputModule>();
+        }
+        else
+        {
+            Debug.Log("EventSystem found: " + EventSystem.current.name);
         }
 
-        if (invalidPlacementMaterial == null)
+        // Canvas validation
+        if (canvas != null)
         {
-            invalidPlacementMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            invalidPlacementMaterial.color = new Color(1, 0, 0, 0.5f);
-        }
-
-        if (demolishMaterial == null)
-        {
-            demolishMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            demolishMaterial.color = new Color(1, 0, 0, 0.7f);
+            Debug.Log("Canvas render mode: " + canvas.renderMode);
+            GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>();
+            Debug.Log("GraphicRaycaster found: " + (raycaster != null));
         }
 
         CreatePlacementIndicator();
@@ -146,6 +168,8 @@ public class DragAndDropManager : MonoBehaviour
         placementIndicator.transform.rotation = Quaternion.Euler(90, 0, 0);
         Destroy(placementIndicator.GetComponent<Collider>());
         placementIndicator.SetActive(false);
+
+        Debug.Log("Placement indicator created: " + (placementIndicator != null));
     }
 
     // Set the current tool mode
@@ -157,10 +181,7 @@ public class DragAndDropManager : MonoBehaviour
         // Reset state when changing modes
         if (isDragging)
         {
-            if (draggedIcon != null)
-                Destroy(draggedIcon);
-
-            isDragging = false;
+            CleanupDrag();
         }
 
         // Reset rotation when changing modes
@@ -176,10 +197,33 @@ public class DragAndDropManager : MonoBehaviour
         // Update indicator appearance based on mode
         if (currentToolMode == ObjectSelectionManager.ToolMode.Demolish)
         {
-            placementIndicator.transform.localScale = new Vector3(1, 1, 1);
-            placementIndicator.GetComponent<Renderer>().material = demolishMaterial;
+            if (placementIndicator != null)
+            {
+                placementIndicator.transform.localScale = new Vector3(1, 1, 1);
+                placementIndicator.GetComponent<Renderer>().material = demolishMaterial;
+            }
         }
         else
+        {
+            if (placementIndicator != null)
+            {
+                placementIndicator.SetActive(false);
+            }
+        }
+    }
+
+    // Helper method to clean up drag state safely
+    private void CleanupDrag()
+    {
+        if (draggedIcon != null)
+        {
+            Destroy(draggedIcon);
+            draggedIcon = null;
+        }
+
+        isDragging = false;
+
+        if (placementIndicator != null)
         {
             placementIndicator.SetActive(false);
         }
@@ -203,15 +247,32 @@ public class DragAndDropManager : MonoBehaviour
         // Start dragging when a button is clicked
         if (Input.GetMouseButtonDown(0))
         {
+            // Add debug logging for builds
+            if (!Application.isEditor)
+            {
+                Debug.Log("=== BUILD MODE: MOUSE DOWN DETECTED ===");
+                Debug.Log("Mouse Position: " + Input.mousePosition);
+            }
+
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
                 GameObject clickedObj = EventSystem.current.currentSelectedGameObject;
+
+                if (!Application.isEditor)
+                {
+                    Debug.Log("Clicked object: " + (clickedObj != null ? clickedObj.name : "NULL"));
+                }
 
                 if (clickedObj != null && (
                     clickedObj.CompareTag("BuildingButton") ||
                     clickedObj.CompareTag("RoadButton") ||
                     clickedObj.CompareTag("NatureButton")))
                 {
+                    if (!Application.isEditor)
+                    {
+                        Debug.Log("Valid button clicked! Child count: " + clickedObj.transform.childCount);
+                    }
+
                     if (clickedObj.transform.childCount > 0)
                     {
                         Transform iconTransform = clickedObj.transform.GetChild(0);
@@ -220,6 +281,18 @@ public class DragAndDropManager : MonoBehaviour
                             Image buttonIcon = iconTransform.GetComponent<Image>();
                             if (buttonIcon != null)
                             {
+                                if (!Application.isEditor)
+                                {
+                                    Debug.Log("Creating dragged icon...");
+                                }
+
+                                // Null check for canvasTransform
+                                if (canvasTransform == null)
+                                {
+                                    Debug.LogError("canvasTransform is null! Cannot create dragged icon.");
+                                    return;
+                                }
+
                                 draggedIcon = new GameObject("DraggedIcon");
                                 draggedIcon.AddComponent<RectTransform>();
                                 Image iconImage = draggedIcon.AddComponent<Image>();
@@ -227,7 +300,7 @@ public class DragAndDropManager : MonoBehaviour
 
                                 // Make the dragged icon semi-transparent
                                 Color iconColor = buttonIcon.color;
-                                iconColor.a = 0.7f; // 50% transparent
+                                iconColor.a = 0.7f; // 70% transparent
                                 iconImage.color = iconColor;
 
                                 iconImage.raycastTarget = false;
@@ -251,13 +324,30 @@ public class DragAndDropManager : MonoBehaviour
                                 FindObjectSize(currentPrefabName);
 
                                 isDragging = true;
-                                placementIndicator.SetActive(true);
+
+                                // Safely activate placement indicator
+                                if (placementIndicator != null)
+                                {
+                                    placementIndicator.SetActive(true);
+                                }
 
                                 // Reset rotation index when starting new drag
                                 currentRotationIndex = 0;
+
+                                if (!Application.isEditor)
+                                {
+                                    Debug.Log("Drag started successfully!");
+                                }
                             }
                         }
                     }
+                }
+            }
+            else
+            {
+                if (!Application.isEditor)
+                {
+                    Debug.Log("Pointer is NOT over a game object or EventSystem is null");
                 }
             }
         }
@@ -267,8 +357,18 @@ public class DragAndDropManager : MonoBehaviour
             // Move the dragged icon with the mouse
             draggedIcon.transform.position = Input.mousePosition;
 
-            // Update the placement indicator
-            UpdatePlacementIndicator();
+            // Update the placement indicator with safety checks
+            if (placementIndicator != null && mainCamera != null && cityContainer != null && gridSystem != null)
+            {
+                UpdatePlacementIndicator();
+            }
+            else
+            {
+                if (!Application.isEditor)
+                {
+                    Debug.LogWarning("Cannot update placement indicator - missing components");
+                }
+            }
 
             // Handle rotation input
             HandleRotationInput();
@@ -276,11 +376,43 @@ public class DragAndDropManager : MonoBehaviour
             // Place the object on left mouse release
             if (Input.GetMouseButtonUp(0))
             {
+                if (!Application.isEditor)
+                {
+                    Debug.Log("Mouse up - attempting to place object");
+                }
+
+                // Null checks
+                if (mainCamera == null)
+                {
+                    Debug.LogError("Main camera is null!");
+                    CleanupDrag();
+                    return;
+                }
+
+                if (cityContainer == null)
+                {
+                    Debug.LogError("City container is null!");
+                    CleanupDrag();
+                    return;
+                }
+
+                if (gridSystem == null)
+                {
+                    Debug.LogError("Grid system is null!");
+                    CleanupDrag();
+                    return;
+                }
+
                 Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
                 RaycastHit hit;
 
                 if (Physics.Raycast(ray, out hit))
                 {
+                    if (!Application.isEditor)
+                    {
+                        Debug.Log("Raycast hit: " + hit.transform.name);
+                    }
+
                     Vector3 localHitPoint = cityContainer.InverseTransformPoint(hit.point);
                     Vector2Int gridPos = gridSystem.WorldToGrid(localHitPoint);
 
@@ -311,17 +443,76 @@ public class DragAndDropManager : MonoBehaviour
                     }
                     else
                     {
-                        Destroy(draggedIcon);
+                        if (!Application.isEditor)
+                        {
+                            Debug.Log("Invalid placement - cleaning up");
+                        }
+                        CleanupDrag();
                     }
                 }
                 else
                 {
-                    Destroy(draggedIcon);
-                }
+                    if (!Application.isEditor)
+                    {
+                        Debug.Log("No raycast hit - trying alternative approach");
+                    }
 
-                isDragging = false;
-                placementIndicator.SetActive(false);
+                    // Alternative: Use a simple ground plane at Y=0
+                    Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+                    float distance;
+
+                    if (groundPlane.Raycast(ray, out distance))
+                    {
+                        Vector3 hitPoint = ray.GetPoint(distance);
+                        Vector3 localHitPoint = cityContainer.InverseTransformPoint(hitPoint);
+                        Vector2Int gridPos = gridSystem.WorldToGrid(localHitPoint);
+
+                        // Check if this position is valid
+                        Vector2Int rotatedSize = RotateSize(currentObjectSize, currentRotationIndex);
+                        bool alternativeValidPlacement = gridSystem.CanPlaceObject(gridPos, rotatedSize);
+
+                        if (alternativeValidPlacement)
+                        {
+                            if (!Application.isEditor)
+                            {
+                                Debug.Log("Placing object at alternative valid position");
+                            }
+
+                            Vector3 localCellPos = gridSystem.GridToWorld(gridPos);
+                            Quaternion finalRotation = cityContainer.rotation * Quaternion.Euler(0, currentRotationIndex * rotationStep, 0);
+                            float halfSizeX = (rotatedSize.x * gridSystem.CellSize) / 2.0f - gridSystem.CellSize / 2.0f;
+                            float halfSizeZ = (rotatedSize.y * gridSystem.CellSize) / 2.0f - gridSystem.CellSize / 2.0f;
+                            Vector3 localOffset = new Vector3(halfSizeX, 0, halfSizeZ);
+                            Vector3 worldCellPos = cityContainer.TransformPoint(localCellPos);
+                            Vector3 worldOffset = cityContainer.TransformDirection(localOffset);
+                            Vector3 finalPosition = worldCellPos + worldOffset;
+
+                            StartCoroutine(TransitionToPlacedObject(finalPosition, finalRotation, gridPos));
+                        }
+                        else
+                        {
+                            if (!Application.isEditor)
+                            {
+                                Debug.Log("Alternative placement invalid - cleaning up");
+                            }
+                            CleanupDrag();
+                        }
+                    }
+                    else
+                    {
+                        if (!Application.isEditor)
+                        {
+                            Debug.Log("No hit with alternative approach either - cleaning up");
+                        }
+                        CleanupDrag();
+                    }
+                }
             }
+        }
+        else if (isDragging)
+        {
+            Debug.Log("isDragging is true but draggedIcon is null!");
+            isDragging = false;
         }
     }
 
@@ -354,7 +545,10 @@ public class DragAndDropManager : MonoBehaviour
             }
 
             // Update indicator to show new rotation
-            UpdatePlacementIndicator();
+            if (placementIndicator != null && mainCamera != null && cityContainer != null && gridSystem != null)
+            {
+                UpdatePlacementIndicator();
+            }
         }
     }
 
@@ -372,7 +566,10 @@ public class DragAndDropManager : MonoBehaviour
             }
 
             // Update indicator to show new rotation
-            UpdatePlacementIndicator();
+            if (placementIndicator != null && mainCamera != null && cityContainer != null && gridSystem != null)
+            {
+                UpdatePlacementIndicator();
+            }
         }
     }
 
@@ -391,8 +588,22 @@ public class DragAndDropManager : MonoBehaviour
 
     void HandleDemolishMode()
     {
+        // Null check for placement indicator
+        if (placementIndicator == null)
+        {
+            Debug.LogError("Placement indicator is null in demolish mode!");
+            return;
+        }
+
         // Show demolish indicator
         placementIndicator.SetActive(true);
+
+        // Null checks for required components
+        if (mainCamera == null || cityContainer == null)
+        {
+            Debug.LogError("Missing required components for demolish mode!");
+            return;
+        }
 
         // Update indicator position
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
@@ -497,7 +708,10 @@ public class DragAndDropManager : MonoBehaviour
         Debug.Log($"Demolishing object: {obj.name}, Is child of cityContainer: {obj.transform.parent == cityContainer}");
 
         // Free grid cells
-        gridSystem.RemoveObject(obj);
+        if (gridSystem != null)
+        {
+            gridSystem.RemoveObject(obj);
+        }
 
         // Play demolish animation
         StartCoroutine(AnimateDemolish(obj));
@@ -521,9 +735,20 @@ public class DragAndDropManager : MonoBehaviour
 
     void UpdatePlacementIndicator()
     {
+        // Null checks for all required components
+        if (mainCamera == null || placementIndicator == null || cityContainer == null || gridSystem == null)
+        {
+            if (!Application.isEditor)
+            {
+                Debug.LogError("Missing components in UpdatePlacementIndicator");
+            }
+            return;
+        }
+
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
+        // Try regular physics raycast first
         if (Physics.Raycast(ray, out hit))
         {
             Vector3 localHitPoint = cityContainer.InverseTransformPoint(hit.point);
@@ -573,11 +798,84 @@ public class DragAndDropManager : MonoBehaviour
             placementIndicator.GetComponent<Renderer>().material =
                 isValidPlacement ? validPlacementMaterial : invalidPlacementMaterial;
         }
+        else
+        {
+            // Alternative approach using ground plane
+            Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
+            float distance;
+
+            if (groundPlane.Raycast(ray, out distance))
+            {
+                Vector3 hitPoint = ray.GetPoint(distance);
+                Vector3 localHitPoint = cityContainer.InverseTransformPoint(hitPoint);
+                Vector2Int gridPos = gridSystem.WorldToGrid(localHitPoint);
+
+                // Get rotated size for grid check
+                Vector2Int rotatedSize = RotateSize(currentObjectSize, currentRotationIndex);
+
+                // Check if placement is valid with rotated dimensions
+                isValidPlacement = gridSystem.CanPlaceObject(gridPos, rotatedSize);
+
+                Vector3 localCellPos = gridSystem.GridToWorld(gridPos);
+                Vector3 worldCellPos = cityContainer.TransformPoint(localCellPos);
+
+                // Calculate offset based on object size and rotation
+                float halfSizeX = (rotatedSize.x * gridSystem.CellSize) / 2.0f - gridSystem.CellSize / 2.0f;
+                float halfSizeZ = (rotatedSize.y * gridSystem.CellSize) / 2.0f - gridSystem.CellSize / 2.0f;
+
+                // Create local space offset
+                Vector3 localOffset = new Vector3(halfSizeX, 0, halfSizeZ);
+
+                // Convert to world space with rotation
+                Vector3 worldOffset = cityContainer.TransformDirection(localOffset);
+
+                // Update indicator position
+                placementIndicator.transform.position = new Vector3(
+                    worldCellPos.x + worldOffset.x,
+                    0.02f, // Slightly above ground
+                    worldCellPos.z + worldOffset.z
+                );
+
+                // Update indicator rotation - include both city rotation and object rotation
+                placementIndicator.transform.rotation = Quaternion.Euler(
+                    90, // Face upward
+                    cityContainer.eulerAngles.y + (currentRotationIndex * rotationStep), // Apply city rotation + object rotation
+                    0
+                );
+
+                // Update indicator scale
+                placementIndicator.transform.localScale = new Vector3(
+                    rotatedSize.x * gridSystem.CellSize,
+                    rotatedSize.y * gridSystem.CellSize,
+                    1
+                );
+
+                // Update indicator material
+                placementIndicator.GetComponent<Renderer>().material =
+                    isValidPlacement ? validPlacementMaterial : invalidPlacementMaterial;
+            }
+            else
+            {
+                if (!Application.isEditor)
+                {
+                    Debug.LogWarning("Could not determine placement position - no raycast hit");
+                }
+                isValidPlacement = false;
+            }
+        }
     }
 
     IEnumerator TransitionToPlacedObject(Vector3 finalPosition, Quaternion finalRotation, Vector2Int gridPos)
     {
         PlayRandomBuildSound();
+
+        // Null check for draggedIcon
+        if (draggedIcon == null)
+        {
+            Debug.LogError("draggedIcon is null in TransitionToPlacedObject!");
+            yield break;
+        }
+
         // Get screen position of dragged icon for animation
         Vector3 startScreenPos = draggedIcon.transform.position;
 
@@ -594,7 +892,7 @@ public class DragAndDropManager : MonoBehaviour
         if (prefab == null)
         {
             Debug.LogError("Prefab not found: " + currentPrefabName);
-            Destroy(draggedIcon);
+            CleanupDrag();
             yield break;
         }
 
@@ -620,41 +918,61 @@ public class DragAndDropManager : MonoBehaviour
             float t = transitionCurve.Evaluate(elapsed / transitionDuration);
 
             // Fade out the 2D icon
-            Image iconImage = draggedIcon.GetComponent<Image>();
-            Color iconColor = iconImage.color;
-            iconColor.a = 1 - t;
-            iconImage.color = iconColor;
+            if (draggedIcon != null)
+            {
+                Image iconImage = draggedIcon.GetComponent<Image>();
+                if (iconImage != null)
+                {
+                    Color iconColor = iconImage.color;
+                    iconColor.a = 1 - t;
+                    iconImage.color = iconColor;
+                }
+            }
 
             // Move the 3D object
-            placedObject.transform.position = Vector3.Lerp(startWorldPos, finalPosition, t);
+            if (placedObject != null)
+            {
+                placedObject.transform.position = Vector3.Lerp(startWorldPos, finalPosition, t);
 
-            // Scale up the 3D object
-            placedObject.transform.localScale = Vector3.Lerp(Vector3.zero, finalScale, t);
+                // Scale up the 3D object
+                placedObject.transform.localScale = Vector3.Lerp(Vector3.zero, finalScale, t);
 
-            // Rotate the object smoothly to the final rotation
-            placedObject.transform.rotation = Quaternion.Slerp(startRotation, finalRotation, t);
+                // Rotate the object smoothly to the final rotation
+                placedObject.transform.rotation = Quaternion.Slerp(startRotation, finalRotation, t);
+            }
 
             elapsed += Time.deltaTime;
             yield return null;
         }
 
         // Finalize object placement
-        placedObject.transform.position = finalPosition;
-        placedObject.transform.localScale = finalScale;
-        placedObject.transform.rotation = finalRotation;
-        placedObject.transform.SetParent(cityContainer);
+        if (placedObject != null)
+        {
+            placedObject.transform.position = finalPosition;
+            placedObject.transform.localScale = finalScale;
+            placedObject.transform.rotation = finalRotation;
+            placedObject.transform.SetParent(cityContainer);
 
-        // Mark grid cells as occupied with rotated size
-        gridSystem.SetObjectOccupied(gridPos, rotatedSize, placedObject);
+            // Mark grid cells as occupied with rotated size
+            if (gridSystem != null)
+            {
+                gridSystem.SetObjectOccupied(gridPos, rotatedSize, placedObject);
+            }
+        }
 
-        
-
-        // Destroy the dragged icon
-        Destroy(draggedIcon);
+        // Clean up
+        CleanupDrag();
     }
 
     IEnumerator AnimateDemolish(GameObject obj)
     {
+        // Null check
+        if (obj == null)
+        {
+            Debug.LogError("Object to demolish is null!");
+            yield break;
+        }
+
         // Store original properties
         Vector3 originalScale = obj.transform.localScale;
         Vector3 originalPosition = obj.transform.position;
@@ -676,7 +994,7 @@ public class DragAndDropManager : MonoBehaviour
         float shakeTime = demolishDuration * 0.7f; // Shake for part of the animation
         float elapsed = 0;
 
-        while (elapsed < shakeTime)
+        while (elapsed < shakeTime && obj != null)
         {
             // Random shake
             Vector3 shakeOffset = new Vector3(
@@ -699,14 +1017,17 @@ public class DragAndDropManager : MonoBehaviour
         }
 
         // Reset position after shake
-        obj.transform.position = originalPosition;
-        obj.transform.rotation = originalRotation;
+        if (obj != null)
+        {
+            obj.transform.position = originalPosition;
+            obj.transform.rotation = originalRotation;
+        }
 
         // Collapse/scale down
         elapsed = 0;
         float collapseTime = demolishDuration * 0.3f; // Collapse for the rest of the animation
 
-        while (elapsed < collapseTime)
+        while (elapsed < collapseTime && obj != null)
         {
             float t = elapsed / collapseTime;
 
@@ -725,6 +1046,9 @@ public class DragAndDropManager : MonoBehaviour
         }
 
         // Destroy the object
-        Destroy(obj);
+        if (obj != null)
+        {
+            Destroy(obj);
+        }
     }
 }
